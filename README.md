@@ -3,64 +3,58 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> ⚠️ **Disclaimer**:本專案僅供**學術研究與策略回測**使用,不構成任何投資建議。
-> 使用者依本專案資訊進行任何交易行為所造成之盈虧,作者概不負責。
+> ⚠️ **Disclaimer**: This project is for **academic research and strategy backtesting only**. It does not constitute investment advice. The authors are not responsible for any profits or losses arising from trades made based on this project.
 
-一個基於 Python + [Backtrader](https://www.backtrader.com/) 的回測框架,
-用來研究 ICT(Inner Circle Trader)交易概念中的 **SMT 背離(Smart Money Divergence)** 策略,
-支援**美股**(yfinance)與**台股**(yfinance / Yahoo Finance)。
+A Python + [Backtrader](https://www.backtrader.com/) framework for researching the **SMT Divergence (Smart Money Divergence)** concept from the ICT (Inner Circle Trader) methodology, supporting both **US equities** (yfinance) and **Taiwan equities** (yfinance / Yahoo Finance).
 
 ---
 
-## 什麼是 SMT 背離?
+## What is SMT Divergence?
 
-兩個高度相關的標的(例如 SPY 與 QQQ、台積電 2330 與 0050)在**正常情況下會同漲同跌**。
-當其中一個創**新低**而另一個**沒有跟著創新低**時,代表「聰明錢」可能已經停止賣出 →
-這就是**看多 SMT 背離**(反之亦然為看空)。
+Two highly correlated instruments (e.g. SPY and QQQ, or TSMC 2330 and 0050) **normally move together**. When one makes a **new low** but the other **fails to**, it suggests "smart money" may have stopped selling — this is a **bullish SMT divergence** (and vice versa for bearish).
 
-本框架做的事:
+What this framework does:
 
-1. 用**分形(fractal)**自動偵測兩個標的的 swing high / low。
-2. 比對兩邊的 swing,找出 SMT 背離事件。
-3. 用 **BOS / CHOCH** 市場結構作為進場確認(可選)。
-4. 用 Backtrader 進行歷史回測,輸出 Sharpe、勝率、最大回撤等指標。
-5. 提供 CLI 即時掃描最近的訊號(含建議 entry / stop / target)。
+1. Automatically detects swing highs/lows on both instruments using a **fractal** method.
+2. Compares swings on both sides to identify SMT divergence events.
+3. Optionally uses **BOS / CHOCH** market structure as entry confirmation.
+4. Runs historical backtests via Backtrader, reporting Sharpe, win rate, max drawdown, etc.
+5. Provides a CLI to scan for the latest signals (with suggested entry / stop / target).
 
-完整概念與參數解說見 [`docs/SMT_TUTORIAL.md`](docs/SMT_TUTORIAL.md)。
+Full concept and parameter walkthrough: [`docs/SMT_TUTORIAL_EN.md`](docs/SMT_TUTORIAL_EN.md).
 
 ---
 
-## 安裝
+## Installation
 
-需求:**Python 3.10+**(在 Windows / macOS / Linux 上皆可運行,測試於 3.10–3.11)。
+Requires **Python 3.10+** (works on Windows / macOS / Linux; tested on 3.10–3.11).
 
 ```bash
 # 1. clone
 git clone https://github.com/<your-account>/SMT.git
 cd SMT
 
-# 2. 建立虛擬環境(建議)
+# 2. create a virtual environment (recommended)
 python -m venv venv
 # Windows
 venv\Scripts\activate
 # macOS / Linux
 source venv/bin/activate
 
-# 3. 安裝套件
+# 3. install dependencies
 pip install -r requirements.txt
 
-# 4. 跑測試確認環境 OK
+# 4. run the test suite to verify the environment
 pytest tests/
 ```
 
-> **資料來源說明**:本專案所有資料皆透過 [yfinance](https://github.com/ranaroussi/yfinance)(免費、免註冊、免 token)從 Yahoo Finance 抓取。
-> Yahoo 偶爾會觸發 rate limit,如果某次抓取失敗請稍等幾秒後重試。
+> **Data source note**: All data is fetched from Yahoo Finance via [yfinance](https://github.com/ranaroussi/yfinance) (free, no signup, no token). Yahoo occasionally rate-limits — if a fetch fails, wait a few seconds and retry.
 
 ---
 
 ## Quick Start
 
-### 程式化回測
+### Programmatic backtest
 
 ```python
 from backtest import run, summarize
@@ -69,7 +63,7 @@ cerebro, strat = run("SPY_QQQ", "2018-01-01", "2024-12-31")
 print(summarize(strat))
 ```
 
-預期輸出(範例):
+Example output:
 
 ```
 {
@@ -82,69 +76,68 @@ print(summarize(strat))
 }
 ```
 
-### CLI 訊號掃描
+### CLI signal scanner
 
 ```bash
-# 預設:SPY/QQQ 最近一年,顯示最新一筆 actionable 訊號
+# default: SPY/QQQ over the past year, showing the latest actionable signal
 python cli.py
 
-# 指定配對與時間區間
+# specify pair and date range
 python cli.py --pair TSMC_0050 --start 2024-01-01 --end 2025-01-01
 
-# 列出區間內所有 SMT 事件
+# list all SMT events in the range
 python cli.py --pair SPY_QQQ --mode scan
 
-# 不要求 BOS/CHOCH 市場結構確認
+# disable BOS/CHOCH market-structure confirmation
 python cli.py --no-confirmation
 
-# 列出所有可用的 pair
+# list all available pairs
 python cli.py --list-pairs
 ```
 
 ---
 
-## 內建 Pair
+## Built-in Pairs
 
-| Name        | Market | Primary       | Reference     | 說明                       |
-|-------------|--------|---------------|---------------|----------------------------|
-| `SPY_QQQ`   | US     | SPY           | QQQ           | 美股 ETF 經典組合          |
-| `SPX_NDX`   | US     | ^GSPC (S&P)   | ^IXIC (NDX)   | 美股指數                   |
-| `TWII_0050` | TW     | 0050          | TAIEX (^TWII) | 台灣 50 ETF vs 加權指數    |
-| `TSMC_0050` | TW     | 2330 (台積電) | 0050          | 個股 vs ETF                |
+| Name        | Market | Primary       | Reference     | Notes                          |
+|-------------|--------|---------------|---------------|--------------------------------|
+| `SPY_QQQ`   | US     | SPY           | QQQ           | Classic US ETF pair            |
+| `SPX_NDX`   | US     | ^GSPC (S&P)   | ^IXIC (NDX)   | US indices                     |
+| `TWII_0050` | TW     | 0050          | TAIEX (^TWII) | Taiwan 50 ETF vs broad index   |
+| `TSMC_0050` | TW     | 2330 (TSMC)   | 0050          | Single stock vs ETF            |
 
-### 新增自己的 Pair
+### Adding your own pair
 
-編輯 [`config/pairs.yaml`](config/pairs.yaml),格式如下:
+Edit [`config/pairs.yaml`](config/pairs.yaml):
 
 ```yaml
 pairs:
   MY_PAIR:
-    market: US             # US 或 TW
-    primary: AAPL          # 主要交易標的
-    reference: MSFT        # 參照標的(用來偵測背離)
-    correlation: positive  # positive 或 negative
+    market: US             # US or TW
+    primary: AAPL          # primary trading instrument
+    reference: MSFT        # reference instrument (used for divergence)
+    correlation: positive  # positive or negative
 ```
 
-**台股代號慣例**:直接寫數字代號(`"2330"`、`"0050"`),loader 會自動補上 `.TW` 後綴;
-指數請寫 `TAIEX` 或 `^TWII`。
+**Taiwan ticker convention**: write the numeric code directly (`"2330"`, `"0050"`) — the loader appends `.TW` automatically. For the index use `TAIEX` or `^TWII`.
 
 ---
 
-## 主要參數
+## Key Parameters
 
-所有參數都會在 CLI、回測、敏感度分析三條路徑共用同一套語義:
+The same parameter semantics flow through the CLI, the backtest, and the sensitivity analysis:
 
-| 參數                  | 預設 | 說明                                                       |
-|-----------------------|------|------------------------------------------------------------|
-| `--swing-window`      | 5    | Swing high/low 的分形視窗(越大越保守,訊號越少)。       |
-| `--rr-ratio`          | 2.0  | 風險報酬比,決定 take-profit 距離(stop × rr)。           |
-| `--signal-ttl`        | 10   | 訊號出現後幾根 K 線內未觸發即過期。                        |
-| `--no-confirmation`   | off  | 關閉 BOS/CHOCH 市場結構過濾(訊號變多但雜訊也多)。       |
-| `--mode {latest,scan}`| latest | CLI 模式:只顯示最新一筆 / 列出全部事件。                |
+| Parameter             | Default | Meaning                                                    |
+|-----------------------|---------|------------------------------------------------------------|
+| `--swing-window`      | 5       | Fractal window for swing detection (larger = fewer, more conservative signals). |
+| `--rr-ratio`          | 2.0     | Risk:reward ratio determining take-profit distance (`stop × rr`). |
+| `--signal-ttl`        | 10      | Bars after a signal appears before it expires unconfirmed. |
+| `--no-confirmation`   | off     | Disable BOS/CHOCH structure filter (more signals, more noise). |
+| `--mode {latest,scan}`| latest  | CLI mode: latest actionable only, or list all events.      |
 
 ---
 
-## 參數敏感度分析
+## Parameter Sensitivity Analysis
 
 ```bash
 python -m backtest.sensitivity --pair SPY_QQQ \
@@ -152,63 +145,61 @@ python -m backtest.sensitivity --pair SPY_QQQ \
     --out results/sensitivity_spy_qqq.csv
 ```
 
-預設網格:`swing_window ∈ {3,5,7,10}` × `rr_ratio ∈ {1.5,2,3}` × `signal_ttl ∈ {5,10,20}`,
-共 36 組;結果依 Sharpe 排序輸出至 stdout 與 CSV。
+Default grid: `swing_window ∈ {3,5,7,10}` × `rr_ratio ∈ {1.5,2,3}` × `signal_ttl ∈ {5,10,20}` → 36 combinations. Results are sorted by Sharpe and printed to stdout as well as written to CSV.
 
 ---
 
-## 專案結構
+## Project Layout
 
-資料流向:**`data → core → strategies → backtest / cli`**
+Data flow: **`data → core → strategies → backtest / cli`**
 
 ```
 SMT/
-├── config/pairs.yaml          # 配對定義(新增 pair 改這裡)
+├── config/pairs.yaml          # pair definitions (add new pairs here)
 ├── data/
-│   ├── loaders.py             # BaseLoader 抽象介面
-│   ├── us_loader.py           # 美股(yfinance)
-│   └── tw_loader.py           # 台股(yfinance,自動處理 .TW 後綴)
+│   ├── loaders.py             # BaseLoader abstract interface
+│   ├── us_loader.py           # US (yfinance)
+│   └── tw_loader.py           # TW (yfinance, handles .TW suffix)
 ├── core/
-│   ├── swing.py               # 分形 swing 偵測
-│   ├── smt_detector.py        # SMT 背離偵測
-│   └── confirmations.py       # BOS / CHOCH 市場結構
+│   ├── swing.py               # fractal swing detection
+│   ├── smt_detector.py        # SMT divergence detection
+│   └── confirmations.py       # BOS / CHOCH market structure
 ├── strategies/
-│   └── smt_strategy.py        # Backtrader Strategy 包裝
+│   └── smt_strategy.py        # Backtrader Strategy wrapper
 ├── backtest/
-│   ├── runner.py              # cerebro 組裝 + analyzers
-│   └── sensitivity.py         # 參數網格搜尋
-├── signals/                   # CLI 用的訊號掃描器
-├── notebooks/research.ipynb   # 視覺驗證 swing / SMT
-├── docs/SMT_TUTORIAL.md       # 完整教學文件
-├── tests/                     # pytest 單元測試
-└── cli.py                     # 互動式訊號掃描
+│   ├── runner.py              # cerebro assembly + analyzers
+│   └── sensitivity.py         # parameter grid search
+├── signals/                   # CLI signal scanner
+├── notebooks/research.ipynb   # visual validation of swings / SMT
+├── docs/SMT_TUTORIAL_EN.md    # full tutorial
+├── tests/                     # pytest unit tests
+└── cli.py                     # interactive signal scanner
 ```
 
 ---
 
-## 已知限制
+## Known Limitations
 
-- yfinance 偶爾觸發 Yahoo rate limit,連續抓取多個 symbol 時需稍等。
-- 台股資料目前只支援**價量**,沒有三大法人 / 融資券等籌碼面資料。
-  若需要籌碼面,可自行接 [FinMind](https://finmindtrade.com/) 或證交所開放資料。
-- Backtrader 在 Python 3.12+ 偶有相容性警告,建議使用 3.10 / 3.11。
+- yfinance occasionally hits Yahoo rate limits — pace bulk fetches.
+- Taiwan data currently includes **price/volume only**; no institutional flow / margin data. For that, integrate [FinMind](https://finmindtrade.com/) or TWSE open data yourself.
+- Backtrader emits compatibility warnings on Python 3.12+. Python 3.10 / 3.11 is recommended.
 
 ---
 
-## 貢獻
+## Contributing
 
-歡迎開 issue 與 PR。回報問題時請附上:
-- Python 版本與作業系統
-- 完整錯誤訊息
-- 重現用的指令或程式碼片段
+Issues and PRs welcome. When reporting an issue please include:
+- Python version and OS
+- Full error message
+- The exact command or code snippet that reproduces it
 
 ---
 
 ## Acknowledgements
 
-- 策略概念來自 [ICT(Inner Circle Trader)](https://www.youtube.com/@InnerCircleTrader) 教學體系。
-- 回測引擎:[Backtrader](https://www.backtrader.com/)
-- 資料來源:[Yahoo Finance](https://finance.yahoo.com/) via [yfinance](https://github.com/ranaroussi/yfinance)
+- Strategy concepts from the [ICT (Inner Circle Trader)](https://www.youtube.com/@InnerCircleTrader) curriculum.
+- Backtest engine: [Backtrader](https://www.backtrader.com/)
+- Data source: [Yahoo Finance](https://finance.yahoo.com/) via [yfinance](https://github.com/ranaroussi/yfinance)
 
 ---
 
