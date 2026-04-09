@@ -1,0 +1,27 @@
+# SMT correlated pair definitions
+# correlation: "positive" or "negative" (negative flips divergence logic)
+
+pairs:
+  SPY_QQQ:
+    market: US
+    primary: SPY       # trading target (A)
+    reference: QQQ     # SMT reference (B)
+    correlation: positive
+
+  SPX_NDX:
+    market: US
+    primary: ^GSPC
+    reference: ^IXIC
+    correlation: positive
+
+  TWII_0050:
+    market: TW
+    primary: "0050"
+    reference: TAIEX   # auto-mapped to ^TWII on Yahoo Finance
+    correlation: positive
+
+  TSMC_0050:
+    market: TW
+    primary: "2330"
+    reference: "0050"
+    correlation: positive
