@@ -25,3 +25,5 @@ env/
 results/
 signals/*.csv
 *.log
+
+CLAUDE.md
