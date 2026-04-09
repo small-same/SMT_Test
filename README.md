@@ -21,7 +21,7 @@ What this framework does:
 4. Runs historical backtests via Backtrader, reporting Sharpe, win rate, max drawdown, etc.
 5. Provides a CLI to scan for the latest signals (with suggested entry / stop / target).
 
-Full concept and parameter walkthrough: [`docs/SMT_TUTORIAL_EN.md`](docs/SMT_TUTORIAL_EN.md).
+Full concept and parameter walkthrough: [`docs/SMT_TUTORIAL.md`](docs/SMT_TUTORIAL.md).
 
 ---
 
@@ -171,7 +171,7 @@ SMT/
 │   └── sensitivity.py         # parameter grid search
 ├── signals/                   # CLI signal scanner
 ├── notebooks/research.ipynb   # visual validation of swings / SMT
-├── docs/SMT_TUTORIAL_EN.md    # full tutorial
+├── docs/SMT_TUTORIAL.md       # full tutorial
 ├── tests/                     # pytest unit tests
 └── cli.py                     # interactive signal scanner
 ```

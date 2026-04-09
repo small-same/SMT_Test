@@ -1,125 +1,117 @@
-# SMT / ICT 教學 — 從概念到 CLI 實操
+# SMT / ICT Tutorial — From Concept to CLI
 
-本文件解釋 ICT (Inner Circle Trader) 框架下的 **SMT Divergence**
-如何運作,以及本專案 CLI 的每個參數對應到什麼交易概念。
-閱讀後你應能看懂 `python cli.py` 的輸出,並知道怎麼調整參數。
+This document explains how **SMT Divergence** works under the ICT (Inner Circle Trader) framework, and how each CLI parameter in this project maps to a trading concept. After reading you should be able to interpret `python cli.py` output and know how to tune the parameters.
 
-> ⚠️ 所有內容僅為教育用途,不構成投資建議。
+> ⚠️ Educational use only. Nothing here is investment advice.
 
 ---
 
-## 1. 名詞速查
+## 1. Glossary
 
-| 名詞 | 中文 | 一句話解釋 |
-|---|---|---|
-| **Swing High / Low** | 擺動高/低點 | 局部極值:一根 K 棒的高(低)點比左右各 N 根都高(低) |
-| **HH / HL / LH / LL** | 高高 / 高低 / 低高 / 低低 | 相鄰兩個同類 pivot 的比較(Higher High、Lower Low 等) |
-| **SMT Divergence** | 智慧錢背離 | 兩個「應該同向」的標的,其中一個創新高/低而另一個沒跟上 |
-| **BOS** | Break of Structure | 收盤價突破「最近的同向 swing」,視為趨勢延續 |
-| **CHOCH** | Change of Character | 第一次反向 BOS,視為趨勢轉折訊號 |
-| **Pivot** | 樞紐 | 觸發訊號的那個 swing 點(停損參考位) |
-| **R:R** | 風險報酬比 | `(target - entry) / (entry - stop)`,固定 2.0 代表賺 2 賠 1 |
-| **TTL** | 訊號壽命 | SMT 發生後幾根 K 棒內還算有效,過期就作廢 |
+| Term | Meaning |
+|---|---|
+| **Swing High / Low** | Local extreme: a candle whose high (low) exceeds the N candles on each side. |
+| **HH / HL / LH / LL** | Higher High / Higher Low / Lower High / Lower Low — comparisons between two consecutive same-type pivots. |
+| **SMT Divergence** | Two correlated instruments where one prints a new high/low and the other does not. |
+| **BOS** | Break of Structure — close beyond the most recent same-direction swing; trend continuation. |
+| **CHOCH** | Change of Character — first opposite-direction BOS; trend reversal signal. |
+| **Pivot** | The swing point that triggered the signal (used as the stop reference). |
+| **R:R** | Risk:reward ratio = `(target - entry) / (entry - stop)`. 2.0 means risking 1 to make 2. |
+| **TTL** | Signal lifetime — how many bars after the SMT event the signal remains valid. |
 
 ---
 
-## 2. ICT 的核心直覺
+## 2. The ICT Intuition
 
-ICT 假設市場由「聰明錢 (smart money)」主導。當他們**準備反向**時,
-常常先在某個標的停止製造新高/低,而相關標的(散戶追的那個)仍
-在慣性延伸。兩者出現**背離**,就是聰明錢先收手的腳印。
+ICT assumes markets are driven by "smart money". When they prepare to reverse, they often stop printing new highs/lows on one instrument while the correlated one (the retail favorite) keeps extending by inertia. That **divergence** is the smart-money footprint.
 
-### 2.1 經典例子 — SPY vs QQQ
+### 2.1 Classic example — SPY vs QQQ
 
-SPY(標普 500)和 QQQ(那指 100)同屬美股大盤,正相關極高。
+SPY (S&P 500) and QQQ (Nasdaq 100) are both US large-cap and highly correlated.
 
 ```
-情境:熊市 SMT (bearish)
+Bearish SMT
           SPY                 QQQ
-高點2 ●  ← 新高 (HH)          ●
-       \                    /  ← 沒創新高 (LH)
-高點1   ●                  ●
+high2  ●  ← new HH            ●
+       \                     /  ← failed to print HH (LH)
+high1   ●                   ●
 ```
 
-SPY 創新高但 QQQ 沒跟上 → **bearish SMT**,暗示即將回落。
-要進空單前,通常再等一個 **BOS_down 或 CHOCH_down** 作為
-確認才動手。
+SPY makes a new high but QQQ does not → **bearish SMT**, hinting at a pullback. Before going short you typically wait for a **BOS_down or CHOCH_down** as confirmation.
 
-### 2.2 多頭例子
+### 2.2 Bullish example
 
 ```
-情境:多頭 SMT (bullish)
+Bullish SMT
           SPY                 QQQ
-低點1   ●                  ●
-       /                    \   ← 沒再破底 (HL)
-低點2 ●  ← 新低 (LL)          ●
+low1    ●                    ●
+       /                      \   ← held above prior low (HL)
+low2  ●  ← new LL              ●
 ```
 
-SPY 破底但 QQQ 守住 → **bullish SMT**,醞釀反彈。
+SPY breaks down but QQQ holds → **bullish SMT**, building a bounce.
 
-### 2.3 為什麼還要 BOS / CHOCH?
+### 2.3 Why also use BOS / CHOCH?
 
-光是 SMT 只能告訴你「動能消退」,不代表「馬上反轉」。
-加上結構確認可大幅降低假訊號:
+SMT alone only tells you "momentum is fading", not "the reversal is now". Adding structure confirmation cuts false signals significantly:
 
-- **BOS_up** = 收盤突破最近 swing high → 買方接手
-- **CHOCH_up** = 由下行轉為第一次 BOS_up → 轉折訊號更強
+- **BOS_up** = close above the most recent swing high → buyers stepping in.
+- **CHOCH_up** = the first BOS_up after a downtrend → stronger reversal cue.
 
-本專案的 `actionable` 狀態 = SMT + 同向 BOS/CHOCH 發生於 TTL 內。
+This project's `actionable` status = SMT **plus** a same-direction BOS/CHOCH within the TTL window.
 
 ---
 
-## 3. 進出場價位怎麼算
+## 3. How Entry / Stop / Target Are Computed
 
-程式用與 `strategies/smt_strategy.py` 相同的規則:
+The CLI uses the same rule as `strategies/smt_strategy.py`:
 
 ```
-entry  = SMT 事件當天的收盤價 (primary)
-         ├── bullish: stop   = pivot_low  × 0.995    (pivot 下方 0.5%)
+entry  = primary close on the SMT event day
+         ├── bullish: stop   = pivot_low  × 0.995    (0.5% below pivot)
          │             risk  = entry - stop
          │             target= entry + risk × rr_ratio
-         └── bearish: stop   = pivot_high × 1.005    (pivot 上方 0.5%)
+         └── bearish: stop   = pivot_high × 1.005    (0.5% above pivot)
                       risk  = stop - entry
                       target= entry - risk × rr_ratio
 ```
 
-- **pivot** 就是觸發訊號的那個 swing 點,把停損藏在它外側 0.5%
-  給市場一點雜訊空間。
-- **R:R = 2.0** 代表:若虧損 1 元的空間,目標設在獲利 2 元的價位。
-- 真實進場可再自行移動停損或分批止盈,本工具只給建議起點。
+- **pivot** is the swing point that triggered the signal; the stop sits 0.5% beyond it to give the market some noise room.
+- **R:R = 2.0** means: for every 1 unit of loss space, the target sits at 2 units of profit.
+- In live use you can trail the stop or scale out; this tool only gives a starting point.
 
 ---
 
-## 4. CLI 參數對照表
+## 4. CLI Parameters
 
 ```bash
 python cli.py [options]
 ```
 
-| 參數 | 預設 | 交易意義 |
+| Parameter | Default | Trading meaning |
 |---|---|---|
-| `--pair` | `SPY_QQQ` | 要掃描的「主交易 / 參考」配對,定義於 `config/pairs.yaml` |
-| `--start` / `--end` | 近一年 | 資料區間;越長訊號越多,但過舊訊號只能研究不能交易 |
-| `--timeframe` | `1d` | K 棒週期。`1d` 最穩定;`1h`/`4h` 僅 yfinance(美股)支援 |
-| `--swing-window` | `5` | fractal 窗口。值越大 pivot 越粗、訊號越少越穩;小值較敏感 |
-| `--rr-ratio` | `2.0` | 目標價與停損的倍數。保守 1.5、積極 3.0 |
-| `--signal-ttl` | `10` | SMT 幾根 K 棒內未被確認就作廢(避免追太舊的訊號) |
-| `--no-confirmation` | off | 關掉 BOS/CHOCH 過濾,看所有 SMT(噪音多,研究用) |
-| `--mode` | `latest` | `latest`=只看最近一筆 actionable;`scan`=列出全部歷史 |
-| `--list-pairs` | — | 列出可用 pair 後結束 |
+| `--pair` | `SPY_QQQ` | The "primary / reference" pair to scan, defined in `config/pairs.yaml`. |
+| `--start` / `--end` | last year | Date range. Longer ranges produce more signals but old ones are research-only. |
+| `--timeframe` | `1d` | Bar interval. `1d` is most stable; `1h`/`4h` only supported for US via yfinance. |
+| `--swing-window` | `5` | Fractal window. Larger → coarser pivots, fewer/cleaner signals. Smaller → more sensitive. |
+| `--rr-ratio` | `2.0` | Target multiple. Conservative 1.5, aggressive 3.0. |
+| `--signal-ttl` | `10` | Bars before an unconfirmed SMT event expires (avoids chasing stale signals). |
+| `--no-confirmation` | off | Disable BOS/CHOCH filter to see every SMT event (noisy, research only). |
+| `--mode` | `latest` | `latest` = only the most recent actionable; `scan` = full history. |
+| `--list-pairs` | — | List available pairs and exit. |
 
-### 調參直覺
+### Tuning intuition
 
-- **訊號太多/雜**:調大 `--swing-window` (7~10)、確保用預設 confirmation。
-- **訊號太少/漏**:調小 `--swing-window` (3)、拉長 `--start` 區間。
-- **你想抓更大行情**:`--rr-ratio 3`,但命中率會下降。
-- **你交易時間短**:`--signal-ttl 5`,只要最快確認的訊號。
+- **Too many / noisy signals**: raise `--swing-window` (7~10), keep confirmation on.
+- **Too few / missing signals**: lower `--swing-window` (3), extend `--start`.
+- **Want bigger moves**: `--rr-ratio 3` — but expect a lower hit rate.
+- **Short-term trading**: `--signal-ttl 5` — only the fastest confirmations count.
 
 ---
 
-## 5. 讀懂 CLI 輸出
+## 5. Reading CLI Output
 
-### 5.1 `latest` 模式
+### 5.1 `latest` mode
 
 ```text
 Fetching SPY_QQQ: SPY / QQQ (US) 2024-04-10 → 2025-04-09 [1d]
@@ -128,85 +120,81 @@ Scanned 250 bars → 6 SMT event(s)
 
 >>> LATEST ACTIONABLE SIGNAL
     2025-03-18  BULLISH  entry=562.10  stop=557.30  target=571.70  R:R=2.0
-    ✓ 已被 BOS_up 確認 @ 2025-03-21
-    ! 訊息僅供參考,非投資建議
+    ✓ confirmed by BOS_up @ 2025-03-21
+    ! informational only — not investment advice
 ```
 
-解讀:
-- 程式在 2025-03-18 發現 SPY/QQQ 的多頭 SMT。
-- 3 天後(03-21)SPY 收盤突破最近 swing high,確認訊號。
-- 建議進場 562.10、停損 557.30、目標 571.70,風險 4.80、目標 9.60。
-- 你可自行選擇當下市價進、或等回測試停損附近進。
+How to read:
+- On 2025-03-18 the program found a bullish SMT on SPY/QQQ.
+- 3 days later (03-21) SPY closed above the most recent swing high → confirmation.
+- Suggested entry 562.10, stop 557.30, target 571.70 — risk 4.80, reward 9.60.
+- You can choose to enter at market or wait for a pullback near the stop.
 
-### 5.2 `scan` 模式
+### 5.2 `scan` mode
 
 ```text
   Date         Dir      Status                  Entry       Stop     Target  R:R   Age  Note
   ------------------------------------------------------------------------------------
-✓ 2024-07-12   BEARISH  actionable            549.20     552.80     542.00   2.0    180  已被 BOS_down 確認 @ 2024-07-18
-… 2024-11-02   BULLISH  pending_confirmation  580.10     576.30     587.70   2.0     90  等待 BOS/CHOCH 確認
-x 2023-12-15   BULLISH  expired               470.40     467.50     476.20   2.0    240  已逾期,僅供歷史參考
+✓ 2024-07-12   BEARISH  actionable            549.20     552.80     542.00   2.0    180  confirmed by BOS_down @ 2024-07-18
+… 2024-11-02   BULLISH  pending_confirmation  580.10     576.30     587.70   2.0     90  awaiting BOS/CHOCH
+x 2023-12-15   BULLISH  expired               470.40     467.50     476.20   2.0    240  past TTL — historical only
 ```
 
-- ✓ = actionable(SMT + 確認)
-- … = pending_confirmation(SMT 出現但尚未確認,仍在 TTL 內)
-- x = expired(超過 TTL,只能回顧學習)
+- ✓ = actionable (SMT + confirmation)
+- … = pending_confirmation (SMT printed but not yet confirmed, still in TTL)
+- x = expired (past TTL — review only)
 
 ---
 
-## 6. 典型工作流
+## 6. Typical Workflow
 
 ```bash
-# 1. 先看有哪些 pair
+# 1. see available pairs
 python cli.py --list-pairs
 
-# 2. 用預設最快檢查美股
+# 2. quick check on US default
 python cli.py
 
-# 3. 想看歷史訓練眼力
+# 3. study history to train your eye
 python cli.py --pair SPY_QQQ --mode scan --start 2023-01-01
 
-# 4. 換台股
+# 4. switch to Taiwan
 python cli.py --pair TSMC_0050 --mode scan
 
-# 5. 想降低噪音,把 window 放大
+# 5. reduce noise by widening the window
 python cli.py --swing-window 7
 
-# 6. 研究時暫時放寬確認條件
+# 6. relax confirmation while researching
 python cli.py --no-confirmation --mode scan
 ```
 
 ---
 
-## 7. 常見疑問
+## 7. FAQ
 
-**Q. actionable 就該進場嗎?**
-A. 否。actionable 只代表 SMT + 結構確認都到位,你仍須自行評估
-   總體環境、事件風險、個人倉位。工具不替你按鈕。
+**Q. Should I enter as soon as a signal is `actionable`?**
+A. No. `actionable` only means SMT + structure confirmation are both in place. You still need to assess macro context, event risk, and position sizing. The tool does not push the button for you.
 
-**Q. 為什麼最新一天沒訊號?**
-A. SMT 通常在 pivot 形成後才能偵測(swing 需要右側 N 根)。
-   `swing_window=5` 代表至少要等 5 根 K 棒才能確定 pivot。
+**Q. Why is there no signal on the most recent day?**
+A. SMT can only be detected after a pivot has formed (a swing needs N bars to its right). With `swing_window=5`, you must wait at least 5 bars before a pivot is confirmed.
 
-**Q. 停損為何是 pivot ±0.5% 而不是固定點數?**
-A. 這是和 `smt_strategy.py` 回測一致的規則,確保「CLI 看到的」
-   和「回測統計出的」是同一套邏輯。
+**Q. Why is the stop pivot ±0.5% rather than a fixed amount?**
+A. This matches the rule in `smt_strategy.py` so the CLI signals and the backtest stats use exactly the same logic.
 
-**Q. TTL 過期的訊號有用嗎?**
-A. 用來複盤:觀察當時確認是否出現、若出現 R:R 能否達成。
-   是訓練盤感最好的材料。
+**Q. Are expired signals useful?**
+A. Yes — for review. Check whether confirmation eventually appeared, and whether the R:R target would have been met. It's the best way to train pattern recognition.
 
 ---
 
-## 8. 延伸閱讀
+## 8. Further Reading
 
-- ICT Mentorship (YouTube 免費) — Michael J. Huddleston 原始教學
-- *Trading in the Zone* — Mark Douglas (交易心態)
-- 本專案原始碼:
-  - `core/swing.py` — swing 偵測
-  - `core/smt_detector.py` — SMT 規則
+- ICT Mentorship (free on YouTube) — Michael J. Huddleston's original lessons.
+- *Trading in the Zone* — Mark Douglas (trading psychology).
+- Project source code:
+  - `core/swing.py` — swing detection
+  - `core/smt_detector.py` — SMT rules
   - `core/confirmations.py` — BOS / CHOCH
-  - `signals/advisor.py` — 組合成帶價位的訊號
-  - `strategies/smt_strategy.py` — 對應的回測策略
+  - `signals/advisor.py` — composes price-level signals
+  - `strategies/smt_strategy.py` — corresponding backtest strategy
 
-祝研究順利。再次提醒:**本工具僅供教育與訊號提示,交易自負盈虧。**
+Happy researching. Reminder: **this tool is for education and signal hints only. You trade at your own risk.**
